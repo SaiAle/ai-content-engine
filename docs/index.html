@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Content Automation Engine — Production Multi-Agent Pipeline</title>
+<meta name="description" content="A fully automated, multi-agent content pipeline that researches, writes, edits, and publishes long-form content with human approval gates. Built with LangGraph 1.0, FastAPI, and PostgreSQL.">
+<meta property="og:title" content="AI Content Automation Engine">
+<meta property="og:description" content="LangGraph 1.0 · FastAPI · PostgreSQL · Human-in-the-Loop — Production AI pipeline that researches, writes, and publishes content.">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #1a1a26;
+    --bg4: #22223a;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f8;
+    --muted: #8888aa;
+    --dim: #555570;
+    --purple: #7c6af7;
+    --purple-light: #a89aff;
+    --purple-dim: rgba(124,106,247,0.15);
+    --teal: #2dd4bf;
+    --teal-dim: rgba(45,212,191,0.12);
+    --amber: #f59e0b;
+    --amber-dim: rgba(245,158,11,0.12);
+    --red: #f87171;
+    --green: #4ade80;
+    --blue: #60a5fa;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --glow: 0 0 40px rgba(124,106,247,0.12);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px;
+  }
+  .nav-brand { font-size: 14px; font-weight: 600; color: var(--purple-light); letter-spacing: -0.01em; }
+  .nav-links { display: flex; gap: 1.75rem; }
+  .nav-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color .15s; }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta {
+    background: var(--purple-dim); border: 1px solid var(--purple);
+    color: var(--purple-light); padding: 6px 14px; border-radius: 6px;
+    font-size: 13px; text-decoration: none; transition: all .15s;
+  }
+  .nav-cta:hover { background: rgba(124,106,247,0.28); }
+
+  /* ── SECTIONS ── */
+  section { padding: 5rem 0; }
+  .container { max-width: 960px; margin: 0 auto; padding: 0 2rem; }
+  .container-wide { max-width: 1120px; margin: 0 auto; padding: 0 2rem; }
+
+  /* ── HERO ── */
+  #hero {
+    padding: 6rem 0 5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-glow {
+    position: absolute; top: -80px; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, rgba(124,106,247,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .badge-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 500; border: 1px solid;
+  }
+  .badge-purple { background: var(--purple-dim); border-color: rgba(124,106,247,0.4); color: var(--purple-light); }
+  .badge-teal   { background: var(--teal-dim);   border-color: rgba(45,212,191,0.35);  color: var(--teal); }
+  .badge-amber  { background: var(--amber-dim);  border-color: rgba(245,158,11,0.35);  color: var(--amber); }
+  .badge-green  { background: rgba(74,222,128,0.1); border-color: rgba(74,222,128,0.35); color: var(--green); }
+  .hero-title {
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 1.25rem;
+    background: linear-gradient(135deg, #fff 40%, var(--purple-light) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero-sub {
+    font-size: 1.15rem; color: var(--muted); max-width: 620px;
+    margin: 0 auto 2.25rem; line-height: 1.7;
+  }
+  .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--purple); color: #fff; border: none;
+    padding: 11px 22px; border-radius: 8px; font-size: 14px; font-weight: 500;
+    cursor: pointer; text-decoration: none; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn-primary:hover { background: #9580ff; transform: translateY(-1px); }
+  .btn-outline {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border2);
+    padding: 11px 22px; border-radius: 8px; font-size: 14px; font-weight: 500;
+    cursor: pointer; text-decoration: none; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn-outline:hover { background: var(--bg3); border-color: var(--border2); }
+
+  /* ── PIPELINE VISUAL ── */
+  .pipeline {
+    display: flex; align-items: center; justify-content: center;
+    flex-wrap: wrap; gap: 0; margin: 3rem auto; max-width: 820px;
+  }
+  .pnode {
+    background: var(--bg3); border: 1px solid var(--border2);
+    padding: 10px 16px; border-radius: 8px; font-size: 13px;
+    font-weight: 500; color: var(--text); white-space: nowrap;
+    transition: all .2s;
+  }
+  .pnode:hover { background: var(--bg4); border-color: var(--purple); color: var(--purple-light); }
+  .pnode.hitl { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+  .parrow { color: var(--dim); font-size: 18px; padding: 0 4px; line-height: 1; }
+
+  /* ── SECTION HEADINGS ── */
+  .section-tag {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--purple-light);
+    background: var(--purple-dim); border: 1px solid rgba(124,106,247,0.3);
+    padding: 4px 10px; border-radius: 20px; margin-bottom: 1rem;
+  }
+  .section-title {
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    font-weight: 700; letter-spacing: -0.02em; line-height: 1.2;
+    margin-bottom: 1rem; color: var(--text);
+  }
+  .section-body { font-size: 1rem; color: var(--muted); max-width: 680px; line-height: 1.8; }
+
+  /* ── WHY BUILT ── */
+  #why { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .why-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; margin-top: 3rem; }
+  .why-story { font-size: 1rem; color: var(--muted); line-height: 1.85; }
+  .why-story p + p { margin-top: 1rem; }
+  .why-story strong { color: var(--text); font-weight: 600; }
+  .why-story em { color: var(--purple-light); font-style: normal; font-weight: 500; }
+  .why-points { display: flex; flex-direction: column; gap: 1rem; }
+  .why-point {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem 1.25rem;
+    border-left: 3px solid var(--purple);
+  }
+  .why-point-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .why-point-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* ── USE CASES ── */
+  .uc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 3rem; }
+  .uc-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 1.5rem;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .uc-card:hover { border-color: var(--border2); box-shadow: var(--glow); }
+  .uc-icon {
+    width: 42px; height: 42px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; margin-bottom: 1rem;
+  }
+  .ic-purple { background: var(--purple-dim); }
+  .ic-teal   { background: var(--teal-dim); }
+  .ic-amber  { background: var(--amber-dim); }
+  .ic-blue   { background: rgba(96,165,250,0.1); }
+  .ic-green  { background: rgba(74,222,128,0.1); }
+  .ic-red    { background: rgba(248,113,113,0.1); }
+  .uc-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .uc-desc { font-size: 13px; color: var(--muted); line-height: 1.65; }
+  .uc-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
+  .tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 4px;
+    background: var(--bg4); color: var(--dim); border: 1px solid var(--border);
+  }
+
+  /* ── ARCHITECTURE ── */
+  #architecture { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .arch-code {
+    background: var(--bg); border: 1px solid var(--border2);
+    border-radius: var(--radius-lg); padding: 1.75rem 2rem;
+    font-family: var(--mono); font-size: 12.5px; color: #c9c9e8;
+    overflow-x: auto; white-space: pre; margin-top: 2.5rem;
+    line-height: 1.65;
+  }
+  .arch-code .c-purple { color: var(--purple-light); }
+  .arch-code .c-teal   { color: var(--teal); }
+  .arch-code .c-amber  { color: var(--amber); }
+  .arch-code .c-dim    { color: var(--dim); }
+  .arch-pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2rem; }
+  .arch-pillar {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.1rem 1.25rem;
+  }
+  .arch-pillar-title { font-size: 13px; font-weight: 600; color: var(--purple-light); margin-bottom: 6px; }
+  .arch-pillar-body { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+  /* ── FEATURES ── */
+  .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 2.5rem; }
+  .feat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem 1.5rem;
+    transition: border-color .2s;
+  }
+  .feat-card:hover { border-color: var(--border2); }
+  .feat-num { font-size: 11px; font-family: var(--mono); color: var(--dim); margin-bottom: 8px; }
+  .feat-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .feat-body { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .feat-code { font-family: var(--mono); font-size: 11.5px; color: var(--teal); background: var(--bg4); padding: 2px 6px; border-radius: 4px; }
+
+  /* ── ROADMAP ── */
+  #roadmap { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .roadmap-phases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 3rem; }
+  .phase {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 1.5rem; position: relative;
+    overflow: hidden;
+  }
+  .phase::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  }
+  .phase-1::before { background: var(--purple); }
+  .phase-2::before { background: var(--teal); }
+  .phase-3::before { background: var(--amber); }
+  .phase-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+  .pl-purple { color: var(--purple-light); }
+  .pl-teal   { color: var(--teal); }
+  .pl-amber  { color: var(--amber); }
+  .phase-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 1rem; }
+  .phase-items { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .phase-items li {
+    font-size: 13px; color: var(--muted); padding-left: 18px; position: relative; line-height: 1.5;
+  }
+  .phase-items li::before { content: '→'; position: absolute; left: 0; color: var(--dim); }
+  .phase-items li strong { color: var(--text); font-weight: 500; }
+
+  .upgrade-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+  .upgrade-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.1rem 1.25rem;
+    border-left: 3px solid;
+  }
+  .ug-purple { border-left-color: var(--purple); }
+  .ug-teal   { border-left-color: var(--teal); }
+  .ug-amber  { border-left-color: var(--amber); }
+  .ug-blue   { border-left-color: var(--blue); }
+  .upgrade-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+  .upgrade-body  { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+  /* ── TECH STACK ── */
+  .stack-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 2.5rem; }
+  .stack-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem 1.25rem;
+  }
+  .stack-layer { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); margin-bottom: 6px; }
+  .stack-tech { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .stack-detail { font-size: 12px; color: var(--muted); }
+
+  /* ── QUICK START ── */
+  .qs-steps { display: flex; flex-direction: column; gap: 1.5rem; margin-top: 2.5rem; }
+  .qs-step { display: flex; gap: 1.25rem; }
+  .qs-num {
+    flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--purple-dim); border: 1px solid var(--purple);
+    color: var(--purple-light); font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+  }
+  .qs-content { flex: 1; }
+  .qs-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  pre.code-block {
+    background: var(--bg); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 1rem 1.25rem;
+    font-family: var(--mono); font-size: 12.5px; color: #c9c9e8;
+    overflow-x: auto; white-space: pre; line-height: 1.65;
+  }
+  pre.code-block .comment { color: var(--dim); }
+  pre.code-block .string  { color: var(--teal); }
+  pre.code-block .kw      { color: var(--purple-light); }
+
+  /* ── API REFERENCE ── */
+  .api-table { width: 100%; border-collapse: collapse; margin-top: 2.5rem; }
+  .api-table th {
+    text-align: left; padding: 10px 14px;
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--dim);
+    border-bottom: 1px solid var(--border);
+  }
+  .api-table td {
+    padding: 12px 14px; font-size: 13px; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .api-table tr:last-child td { border-bottom: none; }
+  .api-table tr:hover td { background: var(--bg3); }
+  .method { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; font-family: var(--mono); }
+  .m-post { background: rgba(45,212,191,0.12); color: var(--teal); border: 1px solid rgba(45,212,191,0.25); }
+  .m-get  { background: rgba(96,165,250,0.1);  color: var(--blue); border: 1px solid rgba(96,165,250,0.25); }
+  .ep { font-family: var(--mono); font-size: 12.5px; color: var(--text); }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    overflow: hidden; margin-top: 3rem;
+  }
+  .stat-cell {
+    background: var(--bg2); padding: 1.25rem 1.5rem; text-align: center;
+  }
+  .stat-n { font-size: 2rem; font-weight: 700; color: var(--purple-light); line-height: 1; margin-bottom: 5px; }
+  .stat-l { font-size: 12px; color: var(--muted); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2.5rem 2rem; text-align: center;
+    font-size: 13px; color: var(--dim);
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    nav { padding: 0 1rem; }
+    .nav-links { display: none; }
+    .why-grid, .arch-pillars, .roadmap-phases, .upgrade-grid { grid-template-columns: 1fr; }
+    .pipeline { gap: 4px; }
+    .parrow { display: none; }
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+
+  /* ── CODE INLINE ── */
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--bg4); padding: 1px 5px; border-radius: 4px; color: var(--teal); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-brand">⚡ ai-content-engine</span>
+  <div class="nav-links">
+    <a href="#why">Why</a>
+    <a href="#usecases">Use Cases</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#roadmap">Roadmap</a>
+    <a href="#quickstart">Quick Start</a>
+    <a href="#api">API</a>
+  </div>
+  <a class="nav-cta" href="https://github.com/SaiAle/ai-content-engine" target="_blank">View on GitHub →</a>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-glow"></div>
+  <div class="container">
+    <div class="badge-row">
+      <span class="badge badge-purple">LangGraph 1.0</span>
+      <span class="badge badge-teal">FastAPI</span>
+      <span class="badge badge-amber">Human-in-the-Loop</span>
+      <span class="badge badge-green">Production-Grade</span>
+    </div>
+    <h1 class="hero-title">AI Content Automation<br>Engine</h1>
+    <p class="hero-sub">A fully automated, multi-agent pipeline that researches, writes, reviews, and publishes long-form content — with a human approval gate before anything goes live.</p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="https://github.com/SaiAle/ai-content-engine" target="_blank">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        GitHub Repository
+      </a>
+      <a class="btn-outline" href="#why">Read the Story ↓</a>
+    </div>
+
+    <!-- PIPELINE DIAGRAM -->
+    <div class="pipeline">
+      <span class="pnode">📥 Ingestor</span>
+      <span class="parrow">→</span>
+      <span class="pnode">🗺 Planner</span>
+      <span class="parrow">→</span>
+      <span class="pnode">🔍 Researcher</span>
+      <span class="parrow">→</span>
+      <span class="pnode">✍️ Writer</span>
+      <span class="parrow">⇄</span>
+      <span class="pnode">🔎 Reviewer</span>
+      <span class="parrow">→</span>
+      <span class="pnode">📈 Optimizer</span>
+      <span class="parrow">→</span>
+      <span class="pnode hitl">🧑 HITL</span>
+      <span class="parrow">→</span>
+      <span class="pnode">🚀 Publisher</span>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-bar">
+      <div class="stat-cell"><div class="stat-n">7</div><div class="stat-l">Graph Nodes</div></div>
+      <div class="stat-cell"><div class="stat-n">74</div><div class="stat-l">Tests</div></div>
+      <div class="stat-cell"><div class="stat-n">3</div><div class="stat-l">Publish Targets</div></div>
+      <div class="stat-cell"><div class="stat-n">10</div><div class="stat-l">Max K8s Pods</div></div>
+      <div class="stat-cell"><div class="stat-n">5</div><div class="stat-l">Alert Rules</div></div>
+      <div class="stat-cell"><div class="stat-n">∞</div><div class="stat-l">Content Runs</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY I BUILT THIS -->
+<section id="why">
+  <div class="container">
+    <span class="section-tag">Origin Story</span>
+    <h2 class="section-title">Why I built this</h2>
+    <p class="section-body">Content creation at scale is broken. Most teams either burn hours on manual research and drafting, or they publish low-quality AI slop with no editorial oversight. I wanted a third path.</p>
+
+    <div class="why-grid">
+      <div class="why-story">
+        <p>
+          I kept hitting the same wall: <strong>AI writing tools are powerful in isolation, but they chain nothing together.</strong> You prompt ChatGPT, copy the draft into a document, manually find sources, run it through Grammarly, paste it into WordPress, then schedule a tweet. Every step is a context switch. Every context switch is a chance to lose momentum or introduce errors.
+        </p>
+        <p>
+          The deeper problem is trust. <em>Raw LLM output is not publishable.</em> Hallucinated statistics, thin arguments, no keyword intent — without a review layer, you're gambling with your brand. But a fully automated pipeline with no human checkpoint is equally reckless.
+        </p>
+        <p>
+          So I asked myself: <strong>what would a senior content team look like if it ran as a software system?</strong> A researcher who fetches live sources. A writer who revises against critique. An editor who scores the draft. An SEO specialist who wraps it in metadata. And a human editorial director who makes the final call before anything goes public.
+        </p>
+        <p>
+          That mental model became this pipeline. <strong>LangGraph's <code>interrupt()</code> was the missing piece</strong> — it lets the graph pause at a well-defined checkpoint, surface exactly the right context to a human, and resume only on explicit approval. Everything before it is automated. Everything after it is irreversible. The line between them is the <em>HITL gate</em>.
+        </p>
+        <p>
+          I built it with production from day one: PostgreSQL checkpointing so runs survive crashes, SSE streaming so editors see tokens as they arrive, Prometheus metrics so you know which node is slow, and Kubernetes manifests so you can deploy it without drama.
+        </p>
+      </div>
+
+      <div class="why-points">
+        <div class="why-point">
+          <div class="why-point-title">The Research Gap</div>
+          <div class="why-point-desc">LLMs have knowledge cutoffs and confabulate. Real content needs live sources. This pipeline calls Tavily and Firecrawl on every run — no stale training data in your published articles.</div>
+        </div>
+        <div class="why-point">
+          <div class="why-point-title">The Quality Loop</div>
+          <div class="why-point-desc">A single pass through an LLM isn't enough. The Writer–Reviewer loop (max 3 iterations, scoring 0–10) catches weak arguments before a human ever sees them.</div>
+        </div>
+        <div class="why-point">
+          <div class="why-point-title">The Trust Problem</div>
+          <div class="why-point-desc">Full automation without oversight is reckless. The HITL gate is non-negotiable — it sits between "AI-generated" and "published", with no way to bypass it in code.</div>
+        </div>
+        <div class="why-point">
+          <div class="why-point-title">The Ops Reality</div>
+          <div class="why-point-desc">Demos are easy, production is hard. Crash-safe state via PostgreSQL, idempotent publishing via SHA-256 keys, and Kubernetes HPA ensure this runs reliably at any scale.</div>
+        </div>
+        <div class="why-point">
+          <div class="why-point-title">Provider Freedom</div>
+          <div class="why-point-desc"><code>init_chat_model("openai:gpt-4o")</code> means switching to Claude 3.5 Sonnet or Gemini is a one-line <code>.env</code> change — no refactoring required.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- USE CASES -->
+<section id="usecases">
+  <div class="container-wide">
+    <div class="container" style="padding: 0;">
+      <span class="section-tag">Use Cases</span>
+      <h2 class="section-title">Who this is built for</h2>
+      <p class="section-body">Any team or individual that produces written content at scale and can't afford to either do it all manually or publish without review.</p>
+    </div>
+
+    <div class="uc-grid" style="margin-top: 3rem;">
+      <div class="uc-card">
+        <div class="uc-icon ic-purple">📰</div>
+        <div class="uc-title">Content Marketing Teams</div>
+        <div class="uc-desc">Publish 10× more SEO articles without 10× the headcount. Set topics in a queue, let the pipeline research and draft, then a single editor reviews the HITL gate output before publishing directly to WordPress.</div>
+        <div class="uc-tags"><span class="tag">SEO blogs</span><span class="tag">pillar pages</span><span class="tag">topic clusters</span></div>
+      </div>
+
+      <div class="uc-card">
+        <div class="uc-icon ic-teal">📊</div>
+        <div class="uc-title">Research-Heavy Publications</div>
+        <div class="uc-desc">Think tanks, newsletters, and analyst firms need current sources in every piece. The Researcher node fetches live Tavily results and Firecrawl-scraped pages so every claim is grounded in today's data, not training data.</div>
+        <div class="uc-tags"><span class="tag">newsletters</span><span class="tag">whitepapers</span><span class="tag">industry reports</span></div>
+      </div>
+
+      <div class="uc-card">
+        <div class="uc-icon ic-amber">🛒</div>
+        <div class="uc-title">E-commerce & Product Teams</div>
+        <div class="uc-desc">Generate optimised product descriptions, buying guides, and comparison articles at scale. Feed a product catalog as topics and let the pipeline produce SEO-ready copy with keyword density scoring.</div>
+        <div class="uc-tags"><span class="tag">product pages</span><span class="tag">buying guides</span><span class="tag">comparisons</span></div>
+      </div>
+
+      <div class="uc-card">
+        <div class="uc-icon ic-blue">🏢</div>
+        <div class="uc-title">Agencies & Freelancers</div>
+        <div class="uc-desc">Run the pipeline for multiple clients simultaneously using different <code>target_platform</code> and tone configurations. Deliver higher volume without sacrificing the editorial review that keeps clients happy.</div>
+        <div class="uc-tags"><span class="tag">client delivery</span><span class="tag">multi-tenant</span><span class="tag">white-label</span></div>
+      </div>
+
+      <div class="uc-card">
+        <div class="uc-icon ic-green">🎓</div>
+        <div class="uc-title">LangGraph Learning Platform</div>
+        <div class="uc-desc">The codebase is a full reference implementation of LangGraph 1.0 patterns: StateGraph, <code>interrupt()</code>, <code>AsyncPostgresSaver</code>, conditional edges, and tool-calling nodes — all in a real production context.</div>
+        <div class="uc-tags"><span class="tag">reference impl</span><span class="tag">LangGraph 1.0</span><span class="tag">education</span></div>
+      </div>
+
+      <div class="uc-card">
+        <div class="uc-icon ic-red">⚡</div>
+        <div class="uc-title">Internal Knowledge Bases</div>
+        <div class="uc-desc">Point the pipeline at internal topics — onboarding docs, runbooks, process guides. The Researcher can be configured to search internal wikis or Confluence instead of the open web, publishing to internal WordPress instances.</div>
+        <div class="uc-tags"><span class="tag">runbooks</span><span class="tag">onboarding</span><span class="tag">internal wiki</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+  <div class="container">
+    <span class="section-tag">Architecture</span>
+    <h2 class="section-title">How it's built</h2>
+    <p class="section-body">A stateful LangGraph graph sits behind a FastAPI service, persisting every node transition to PostgreSQL so runs are crash-safe and restartable from any checkpoint.</p>
+
+    <pre class="arch-code"><span class="c-dim">┌──────────────────────────────────────────────────────────────────┐
+│                        FastAPI  (:8000)                          │
+│  </span><span class="c-amber">POST /runs</span>  <span class="c-amber">GET /runs/{id}/stream</span>  <span class="c-amber">POST /runs/{id}/resume</span>   <span class="c-dim">│
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+                    ┌──────▼──────┐
+                    │  </span><span class="c-purple">LangGraph</span>  <span class="c-dim">│  StateGraph (interrupt)
+                    │   Pipeline  │
+                    └──────┬──────┘
+          ┌────────────────┼────────────────┐
+          │                │                │
+    ┌─────▼─────┐   ┌──────▼──────┐  ┌─────▼──────┐
+    │ Ingestor  │   │ Researcher  │  │  </span><span class="c-purple">Writer</span>    <span class="c-dim">│
+    │ (parse)   │   │ (</span><span class="c-teal">Tavily</span> +   <span class="c-dim">│  │ (GPT-4o /  │
+    └─────┬─────┘   │  </span><span class="c-teal">Firecrawl</span><span class="c-dim">) │  │  Claude)   │
+          │         └──────┬──────┘  └─────┬──────┘
+    ┌─────▼─────┐          │         ┌─────▼──────┐
+    │  Planner  │          │         │  Reviewer  │
+    │ (outline) │          │         │ (</span><span class="c-amber">score ≤3x</span><span class="c-dim">)│
+    └───────────┘          │         └─────┬──────┘
+                           │               │
+                    ┌──────▼───────────────▼──────┐
+                    │         </span><span class="c-purple">Optimizer</span>            <span class="c-dim">│
+                    │      (SEO + metadata)        │
+                    └──────────────┬───────────────┘
+                                   │
+                    ┌──────────────▼───────────────┐
+                    │      </span><span class="c-amber">HITL interrupt()</span>         <span class="c-dim">│  ← React UI
+                    │  Human approves / rejects     │
+                    └──────────────┬───────────────┘
+                                   │
+                    ┌──────────────▼───────────────┐
+                    │         </span><span class="c-teal">Publisher</span>             <span class="c-dim">│
+                    │  WordPress · LinkedIn · X     │
+                    └───────────────────────────────┘
+
+  Storage: PostgreSQL (AsyncPostgresSaver) + Redis cache
+  Observability: LangSmith · Prometheus · Grafana</span></pre>
+
+    <div class="arch-pillars">
+      <div class="arch-pillar">
+        <div class="arch-pillar-title">Durable State</div>
+        <div class="arch-pillar-body">Every node transition is checkpointed to PostgreSQL via <code>AsyncPostgresSaver</code>. A crashed pod resumes from the last checkpoint — no work is lost, no duplicate publishes.</div>
+      </div>
+      <div class="arch-pillar">
+        <div class="arch-pillar-title">SSE Streaming</div>
+        <div class="arch-pillar-body"><code>GET /runs/{id}/stream</code> emits token-by-token events via Server-Sent Events. The React HITL UI shows live generation so editors aren't staring at a spinner for 30 seconds.</div>
+      </div>
+      <div class="arch-pillar">
+        <div class="arch-pillar-title">Idempotent Publish</div>
+        <div class="arch-pillar-body">A SHA-256 hash of the content serves as an idempotency key. Retrying a failed publish never creates a duplicate post on WordPress, LinkedIn, or X — a critical guarantee in distributed systems.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <span class="section-tag">Features</span>
+    <h2 class="section-title">What's included</h2>
+    <p class="section-body">Every component was built for production, not demos. No placeholder nodes, no stub implementations.</p>
+
+    <div class="feat-grid">
+      <div class="feat-card">
+        <div class="feat-num">01</div>
+        <div class="feat-title">Multi-Agent StateGraph</div>
+        <div class="feat-body">7-node LangGraph 1.0 <span class="feat-code">StateGraph</span> with typed <code>ContentState</code>, conditional edges, and a Writer↔Reviewer loop that runs up to 3 revision cycles.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">02</div>
+        <div class="feat-title">HITL Interrupt Gate</div>
+        <div class="feat-body">LangGraph's <span class="feat-code">interrupt()</span> halts execution before publish. The React UI surfaces the draft, SEO score, and outline. Approve, reject, or add feedback — then <code>POST /resume</code>.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">03</div>
+        <div class="feat-title">Live Research</div>
+        <div class="feat-body">Tavily web search returns ranked results with recency filtering. Firecrawl deep-scrapes selected URLs. Sources are attached to every draft so HITL reviewers can verify claims inline.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">04</div>
+        <div class="feat-title">Provider-Agnostic LLM</div>
+        <div class="feat-body">Uses LangChain's <span class="feat-code">init_chat_model</span> — a single string like <code>"anthropic:claude-sonnet-4-5"</code> in <code>.env</code> swaps the underlying model with no code changes.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">05</div>
+        <div class="feat-title">SEO Optimizer</div>
+        <div class="feat-body">Structured output via Pydantic produces slug, meta description, Open Graph tags, and a keyword density score. No free-form strings — every field is validated before it reaches the publisher.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">06</div>
+        <div class="feat-title">JWT Auth + Rate Limiting</div>
+        <div class="feat-body"><code>POST /token</code> issues Bearer tokens via python-jose. <code>slowapi</code> enforces per-IP limits on <code>/runs</code> to prevent abuse. All endpoints require auth except <code>/metrics</code>.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">07</div>
+        <div class="feat-title">Full Observability</div>
+        <div class="feat-body">Prometheus histograms on every node (p50/p95/p99 latency), LangSmith traces for LLM calls, Loguru JSON logs, and a pre-built Grafana dashboard with 5 alert rules including a dead-man switch.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">08</div>
+        <div class="feat-title">Kubernetes-Ready</div>
+        <div class="feat-body">HPA scales API pods 2→10 replicas at CPU 70%/mem 80%. Pod anti-affinity spreads replicas across nodes. The Ingress is configured with SSE-aware timeouts so streams don't get cut off.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">09</div>
+        <div class="feat-title">74 Async Tests</div>
+        <div class="feat-body">pytest-asyncio suite covers ContentState validation, every node's happy path and error paths, router logic, and all API endpoints using <code>httpx.AsyncClient(ASGITransport)</code>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <div class="container">
+    <span class="section-tag">Upgrade Insights & Future Vision</span>
+    <h2 class="section-title">Where this goes next</h2>
+    <p class="section-body">The foundation is production-solid. Here's the upgrade path — from immediate enhancements to the longer-term vision of a fully autonomous content intelligence platform.</p>
+
+    <div class="roadmap-phases">
+      <div class="phase phase-1">
+        <div class="phase-label pl-purple">Phase 1 — Near Term</div>
+        <div class="phase-title">Smarter Content</div>
+        <ul class="phase-items">
+          <li><strong>RAG Memory Layer</strong> — pgvector index of past articles prevents duplicate coverage and lets the Writer reference prior work for internal linking.</li>
+          <li><strong>Tone Profiles</strong> — per-client voice configuration (formal/casual/technical) stored in PostgreSQL and injected at the Writer node as a system prompt preamble.</li>
+          <li><strong>Multi-format Output</strong> — extend Publisher to produce LinkedIn newsletters, Twitter threads, and email digests from the same approved draft.</li>
+          <li><strong>Source Quality Scoring</strong> — rank Tavily results by domain authority and recency before passing to the Writer, reducing citations from low-credibility sources.</li>
+          <li><strong>Fact-Check Node</strong> — a dedicated post-write agent that verifies numeric claims and proper nouns against a second search pass before the HITL gate.</li>
+        </ul>
+      </div>
+
+      <div class="phase phase-2">
+        <div class="phase-label pl-teal">Phase 2 — Medium Term</div>
+        <div class="phase-title">Autonomous Intelligence</div>
+        <ul class="phase-items">
+          <li><strong>Topic Discovery Agent</strong> — monitor SERP gaps and trending queries; automatically propose new content briefs to a human approver queue.</li>
+          <li><strong>Competitor Analysis</strong> — Firecrawl competitor sites nightly, extract topic coverage maps, and surface whitespace opportunities in a Grafana panel.</li>
+          <li><strong>Performance Feedback Loop</strong> — pull GSC/GA4 metrics post-publish and feed them back into a fine-tuned Planner that learns which outlines drive engagement.</li>
+          <li><strong>Image Generation</strong> — integrate DALL·E or Stable Diffusion for auto-generated featured images with Alt text from the Optimizer node.</li>
+          <li><strong>Multi-Language Pipeline</strong> — a Translation node after Publisher dispatches localised versions to country-specific WordPress multisite instances.</li>
+        </ul>
+      </div>
+
+      <div class="phase phase-3">
+        <div class="phase-label pl-amber">Phase 3 — Long Term</div>
+        <div class="phase-title">Platform Vision</div>
+        <ul class="phase-items">
+          <li><strong>Self-Improving Prompts</strong> — DSPy-style automatic prompt optimisation using historical review scores as a training signal. No manual prompt engineering.</li>
+          <li><strong>Multi-Tenant SaaS</strong> — row-level security in PostgreSQL, per-tenant model configs, usage-based billing via Stripe, and a Next.js dashboard replacing the React HITL UI.</li>
+          <li><strong>Agentic Content Strategy</strong> — a meta-agent that reads analytics, allocates budget across content types, and schedules pipeline runs — replacing a human content strategist for routine decisions.</li>
+          <li><strong>Fine-Tuned Models</strong> — LoRA fine-tuning on approved content corpus for brand-voice consistency without system-prompt injection at every call.</li>
+          <li><strong>Real-Time Personalisation</strong> — per-reader content variants generated on-request using edge inference (Cloudflare Workers AI) fed by a reader interest model.</li>
+        </ul>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); margin-bottom:1rem;">Architectural Upgrades Worth Considering Now</h3>
+    <div class="upgrade-grid">
+      <div class="upgrade-card ug-purple">
+        <div class="upgrade-title">Replace Redis cache with Valkey</div>
+        <div class="upgrade-body">Valkey (Redis fork, fully open-source) drops the BSL licensing concern and is a drop-in replacement. Worth the switch for any commercial deployment.</div>
+      </div>
+      <div class="upgrade-card ug-teal">
+        <div class="upgrade-title">Move to LangGraph Cloud</div>
+        <div class="upgrade-body">LangGraph Cloud manages the PostgreSQL checkpointer, SSE infrastructure, and horizontal scaling automatically — offloading the ops burden while keeping the same graph code.</div>
+      </div>
+      <div class="upgrade-card ug-amber">
+        <div class="upgrade-title">Add a Message Queue</div>
+        <div class="upgrade-body">Replace the direct FastAPI→LangGraph call with a Celery or ARQ task queue backed by Redis Streams. Decouples HTTP response time from graph execution time and enables priority queues.</div>
+      </div>
+      <div class="upgrade-card ug-blue">
+        <div class="upgrade-title">Streaming to WebSockets</div>
+        <div class="upgrade-body">SSE is one-directional. Upgrading to WebSockets enables the HITL UI to send inline annotations mid-stream — editors can flag specific sentences for revision before the draft finishes generating.</div>
+      </div>
+      <div class="upgrade-card ug-purple">
+        <div class="upgrade-title">Structured Evals Framework</div>
+        <div class="upgrade-body">Integrate LangSmith Datasets to run regression evals on every graph change. Track review_score distributions and HITL approval rates as CI quality gates — no more shipping blind.</div>
+      </div>
+      <div class="upgrade-card ug-teal">
+        <div class="upgrade-title">CMS Connector Abstraction</div>
+        <div class="upgrade-body">Extract the Publisher into a pluggable connector interface — <code>CMSConnector</code> base class with WordPress, Ghost, Webflow, and Contentful implementations. New platforms in &lt;50 lines.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="stack">
+  <div class="container">
+    <span class="section-tag">Tech Stack</span>
+    <h2 class="section-title">Built on production-grade foundations</h2>
+    <div class="stack-grid">
+      <div class="stack-card">
+        <div class="stack-layer">Orchestration</div>
+        <div class="stack-tech">LangGraph 1.0</div>
+        <div class="stack-detail">StateGraph + interrupt()</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">LLM Layer</div>
+        <div class="stack-tech">LangChain</div>
+        <div class="stack-detail">init_chat_model, LCEL</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">API</div>
+        <div class="stack-tech">FastAPI</div>
+        <div class="stack-detail">uvicorn + uvloop + httptools</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">State Persistence</div>
+        <div class="stack-tech">PostgreSQL</div>
+        <div class="stack-detail">AsyncPostgresSaver</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">Cache</div>
+        <div class="stack-tech">Redis</div>
+        <div class="stack-detail">session + rate limit store</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">Auth</div>
+        <div class="stack-tech">python-jose + passlib</div>
+        <div class="stack-detail">JWT Bearer tokens</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">Research</div>
+        <div class="stack-tech">Tavily + Firecrawl</div>
+        <div class="stack-detail">live search + deep scrape</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">Observability</div>
+        <div class="stack-tech">Prometheus + Grafana</div>
+        <div class="stack-detail">Loguru · LangSmith traces</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">Containers</div>
+        <div class="stack-tech">Docker + Kubernetes</div>
+        <div class="stack-detail">HPA, StatefulSet, Ingress</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">Frontend</div>
+        <div class="stack-tech">React (JSX)</div>
+        <div class="stack-detail">SSE EventSource, HITL UI</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">Testing</div>
+        <div class="stack-tech">pytest-asyncio</div>
+        <div class="stack-detail">httpx ASGITransport, 74 tests</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-layer">Rate Limiting</div>
+        <div class="stack-tech">slowapi</div>
+        <div class="stack-detail">per-IP limits on /runs</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUICK START -->
+<section id="quickstart">
+  <div class="container">
+    <span class="section-tag">Quick Start</span>
+    <h2 class="section-title">Up and running in 5 minutes</h2>
+
+    <div class="qs-steps">
+      <div class="qs-step">
+        <div class="qs-num">1</div>
+        <div class="qs-content">
+          <div class="qs-title">Clone and configure</div>
+          <pre class="code-block"><span class="comment"># Clone the repo</span>
+git clone https://github.com/SaiAle/ai-content-engine.git
+cd ai-content-engine
+
+<span class="comment"># Copy the env template and fill in your keys</span>
+cp .env.example .env</pre>
+        </div>
+      </div>
+
+      <div class="qs-step">
+        <div class="qs-num">2</div>
+        <div class="qs-content">
+          <div class="qs-title">Set required environment variables</div>
+          <pre class="code-block"><span class="comment"># Minimum keys to get started</span>
+PRIMARY_MODEL=openai:gpt-4o
+OPENAI_API_KEY=sk-...
+TAVILY_API_KEY=tvly-...
+
+<span class="comment"># Optional: swap the reviewer to Claude</span>
+REVIEW_MODEL=anthropic:claude-sonnet-4-5
+ANTHROPIC_API_KEY=sk-ant-...
+
+<span class="comment"># Publishing targets</span>
+WORDPRESS_URL=https://yourblog.com
+WORDPRESS_APP_PASSWORD=xxxx xxxx xxxx</pre>
+        </div>
+      </div>
+
+      <div class="qs-step">
+        <div class="qs-num">3</div>
+        <div class="qs-content">
+          <div class="qs-title">Start services with Docker Compose</div>
+          <pre class="code-block">docker compose up -d
+<span class="comment"># PostgreSQL :5432 · Redis :6379 · API :8000</span></pre>
+        </div>
+      </div>
+
+      <div class="qs-step">
+        <div class="qs-num">4</div>
+        <div class="qs-content">
+          <div class="qs-title">Run your first content pipeline</div>
+          <pre class="code-block"><span class="comment"># Get an auth token</span>
+TOKEN=$(curl -s -X POST http://localhost:8000/token \
+  -d <span class="string">"username=admin&password=secret"</span> | jq -r .access_token)
+
+<span class="comment"># Kick off a content run</span>
+curl -X POST http://localhost:8000/runs \
+  -H <span class="string">"Authorization: Bearer $TOKEN"</span> \
+  -H <span class="string">"Content-Type: application/json"</span> \
+  -d <span class="string">'{"topic":"The Future of AI Agents","content_type":"blog_post","target_platform":"wordpress"}'</span>
+
+<span class="comment"># Stream the output live</span>
+curl -N http://localhost:8000/runs/{thread_id}/stream \
+  -H <span class="string">"Authorization: Bearer $TOKEN"</span></pre>
+        </div>
+      </div>
+
+      <div class="qs-step">
+        <div class="qs-num">5</div>
+        <div class="qs-content">
+          <div class="qs-title">Approve at the HITL gate</div>
+          <pre class="code-block"><span class="comment"># The pipeline pauses here — review the draft, then resume</span>
+curl -X POST http://localhost:8000/runs/{thread_id}/resume \
+  -H <span class="string">"Authorization: Bearer $TOKEN"</span> \
+  -H <span class="string">"Content-Type: application/json"</span> \
+  -d <span class="string">'{"approved": true, "feedback": "Looks great — publish it."}'</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- API REFERENCE -->
+<section id="api" style="background:var(--bg2); border-top:1px solid var(--border);">
+  <div class="container">
+    <span class="section-tag">API Reference</span>
+    <h2 class="section-title">Endpoints</h2>
+    <p class="section-body">All endpoints require a Bearer token obtained from <code>POST /token</code>, except <code>GET /metrics</code>.</p>
+
+    <table class="api-table">
+      <thead>
+        <tr>
+          <th>Method</th>
+          <th>Endpoint</th>
+          <th>Description</th>
+          <th>Response</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="method m-post">POST</span></td>
+          <td><span class="ep">/token</span></td>
+          <td>Exchange username + password for a JWT Bearer token.</td>
+          <td><code>{ access_token, token_type }</code></td>
+        </tr>
+        <tr>
+          <td><span class="method m-post">POST</span></td>
+          <td><span class="ep">/runs</span></td>
+          <td>Start a new content pipeline run. Returns immediately with a <code>thread_id</code> — graph runs asynchronously.</td>
+          <td>202 <code>{ thread_id }</code></td>
+        </tr>
+        <tr>
+          <td><span class="method m-get">GET</span></td>
+          <td><span class="ep">/runs/{id}</span></td>
+          <td>Snapshot of the current <code>ContentState</code> for a run — useful for polling or debugging.</td>
+          <td><code>ContentState</code></td>
+        </tr>
+        <tr>
+          <td><span class="method m-get">GET</span></td>
+          <td><span class="ep">/runs/{id}/stream</span></td>
+          <td>Server-Sent Events stream of graph events and LLM token deltas. Keep the connection open until the HITL interrupt fires.</td>
+          <td>SSE stream</td>
+        </tr>
+        <tr>
+          <td><span class="method m-post">POST</span></td>
+          <td><span class="ep">/runs/{id}/resume</span></td>
+          <td>Resume a run paused at the HITL gate. Body: <code>{ approved: bool, feedback?: str }</code>. Resumes graph execution and triggers publish.</td>
+          <td>200 OK</td>
+        </tr>
+        <tr>
+          <td><span class="method m-get">GET</span></td>
+          <td><span class="ep">/metrics</span></td>
+          <td>Prometheus text-format metrics. Scraped by Prometheus every 15s. Includes per-node latency histograms and token cost counters.</td>
+          <td>text/plain</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div style="margin-bottom: 1rem;">
+    <a href="https://github.com/SaiAle/ai-content-engine" target="_blank">GitHub</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/SaiAle/ai-content-engine/blob/main/README.md" target="_blank">README</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/SaiAle/ai-content-engine/tree/main/tests" target="_blank">Tests</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/SaiAle/ai-content-engine/blob/main/LICENSE" target="_blank">MIT License</a>
+  </div>
+  <p>Built with LangGraph 1.0 · FastAPI · PostgreSQL &nbsp;·&nbsp; MIT © 2026 SaiAle</p>
+</footer>
+
+</body>
+</html>
