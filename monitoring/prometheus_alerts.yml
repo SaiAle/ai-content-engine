@@ -1,0 +1,124 @@
+groups:
+  - name: ai_content_engine_alerts
+    interval: 60s
+    rules:
+
+      # ------------------------------------------------------------
+      # HighNodeLatency
+      # Fires when any graph node's p95 execution time exceeds 90 s
+      # for a sustained 5-minute window.
+      # ------------------------------------------------------------
+      - alert: HighNodeLatency
+        expr: >
+          histogram_quantile(
+            0.95,
+            sum by(node_name, le) (
+              rate(content_engine_node_duration_seconds_bucket[5m])
+            )
+          ) > 90
+        for: 5m
+        labels:
+          severity: warning
+          service: ai-content-engine
+        annotations:
+          summary: "High node latency on {{ $labels.node_name }}"
+          description: >
+            Node "{{ $labels.node_name }}" p95 execution time is
+            {{ $value | humanizeDuration }} (threshold: 90s).
+            This may indicate an LLM timeout, a slow external call,
+            or a retry storm. Check node logs and downstream API health.
+
+      # ------------------------------------------------------------
+      # RunFailureRate
+      # Fires when more than 10% of started runs end as failed,
+      # sustained over 10 minutes.
+      # ------------------------------------------------------------
+      - alert: RunFailureRate
+        expr: >
+          (
+            sum(rate(content_engine_runs_total{status="failed"}[5m]))
+            /
+            sum(rate(content_engine_runs_total{status="started"}[5m]))
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: critical
+          service: ai-content-engine
+        annotations:
+          summary: "High run failure rate ({{ $value | humanizePercentage }})"
+          description: >
+            {{ $value | humanizePercentage }} of content engine runs are
+            failing (threshold: 10%). Investigate application logs, LLM
+            provider errors, and the content_engine_runs_total{status="failed"}
+            time series for correlated spikes.
+
+      # ------------------------------------------------------------
+      # TokenBudgetBurn
+      # Fires when the p95 token cost per run exceeds $0.50,
+      # indicating runaway token usage or prompt bloat.
+      # ------------------------------------------------------------
+      - alert: TokenBudgetBurn
+        expr: >
+          histogram_quantile(
+            0.95,
+            sum by(le) (
+              rate(content_engine_token_cost_usd_bucket[5m])
+            )
+          ) > 0.50
+        for: 5m
+        labels:
+          severity: warning
+          service: ai-content-engine
+        annotations:
+          summary: "Token cost p95 exceeds $0.50 per run"
+          description: >
+            The p95 token cost per content run is ${{ $value | printf "%.3f" }}
+            (threshold: $0.50). This may indicate excessive revision iterations,
+            oversized prompts, or a model routing misconfiguration.
+            Review revision_iterations distribution and prompt lengths.
+
+      # ------------------------------------------------------------
+      # APIHighLatency
+      # Fires when the p95 HTTP response time across all handlers
+      # exceeds 5 seconds for 5 consecutive minutes.
+      # ------------------------------------------------------------
+      - alert: APIHighLatency
+        expr: >
+          histogram_quantile(
+            0.95,
+            sum by(handler, le) (
+              rate(http_request_duration_seconds_bucket[5m])
+            )
+          ) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: ai-content-engine
+        annotations:
+          summary: "HTTP p95 latency high on handler {{ $labels.handler }}"
+          description: >
+            Handler "{{ $labels.handler }}" is responding at p95
+            {{ $value | humanizeDuration }} (threshold: 5s).
+            Check for blocking I/O, queue back-pressure, or downstream
+            LLM provider latency degradation.
+
+      # ------------------------------------------------------------
+      # NoRunsStarted
+      # Fires when no runs have been started for 30 minutes —
+      # indicates the service may be dead, misconfigured, or
+      # not receiving traffic.
+      # ------------------------------------------------------------
+      - alert: NoRunsStarted
+        expr: >
+          sum(rate(content_engine_runs_total{status="started"}[5m])) == 0
+        for: 30m
+        labels:
+          severity: warning
+          service: ai-content-engine
+        annotations:
+          summary: "No content engine runs started in the last 30 minutes"
+          description: >
+            The rate of started runs has been zero for 30 minutes.
+            The service may be down, the scheduler/trigger may have stopped,
+            or the metrics endpoint may be unreachable. Verify the application
+            process is running and /metrics is being scraped successfully.

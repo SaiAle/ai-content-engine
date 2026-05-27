@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: content-engine-config
+  namespace: content-engine
+  labels:
+    app.kubernetes.io/name: content-engine
+    app.kubernetes.io/component: config
+data:
+  DATABASE_URL: "postgresql+asyncpg://content_engine:$(POSTGRES_PASSWORD)@postgres-service.content-engine.svc.cluster.local:5432/content_engine"
+  REDIS_URL: "redis://redis-service.content-engine.svc.cluster.local:6379/0"
+  LANGSMITH_PROJECT: "ai-content-engine-prod"
+  PRIMARY_MODEL: "claude-opus-4-5"
+  REVIEW_MODEL: "claude-sonnet-4-5"
+  FAST_MODEL: "claude-haiku-3-5"
+  EMBEDDING_MODEL: "text-embedding-3-small"
+  MAX_REVISION_ITERATIONS: "3"
+  TOKEN_BUDGET_PER_RUN: "200000"
+  NODE_TIMEOUT_SECONDS: "120"
+  GLOBAL_RUN_TIMEOUT_SECONDS: "900"
+  MAX_RECURSION_LIMIT: "50"

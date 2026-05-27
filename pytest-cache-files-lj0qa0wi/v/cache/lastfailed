@@ -1,0 +1,5 @@
+{
+  "tests/test_nodes.py::TestReviewerNode::test_reviewer_returns_accept_verdict": true,
+  "tests/test_nodes.py::TestReviewerNode::test_reviewer_returns_revise_verdict": true,
+  "tests/test_nodes.py::TestOptimizerNode::test_optimizer_sets_seo_result": true
+}

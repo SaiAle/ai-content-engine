@@ -1,0 +1,174 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: content-engine-api
+  namespace: content-engine
+  labels:
+    app.kubernetes.io/name: content-engine-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: content-engine
+    app.kubernetes.io/version: latest
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: content-engine-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: content-engine-api
+        app.kubernetes.io/name: content-engine-api
+        app.kubernetes.io/component: api
+    spec:
+      terminationGracePeriodSeconds: 30
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - content-engine-api
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: content-engine-api
+          image: content-engine:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            # Non-secret config from ConfigMap
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: REDIS_URL
+            - name: LANGSMITH_PROJECT
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: LANGSMITH_PROJECT
+            - name: PRIMARY_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: PRIMARY_MODEL
+            - name: REVIEW_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: REVIEW_MODEL
+            - name: FAST_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: FAST_MODEL
+            - name: EMBEDDING_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: EMBEDDING_MODEL
+            - name: MAX_REVISION_ITERATIONS
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: MAX_REVISION_ITERATIONS
+            - name: TOKEN_BUDGET_PER_RUN
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: TOKEN_BUDGET_PER_RUN
+            - name: NODE_TIMEOUT_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: NODE_TIMEOUT_SECONDS
+            - name: GLOBAL_RUN_TIMEOUT_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: GLOBAL_RUN_TIMEOUT_SECONDS
+            - name: MAX_RECURSION_LIMIT
+              valueFrom:
+                configMapKeyRef:
+                  name: content-engine-config
+                  key: MAX_RECURSION_LIMIT
+            # DATABASE_URL built at runtime to include the resolved password
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: content-engine-secrets
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://content_engine:$(POSTGRES_PASSWORD)@postgres-service.content-engine.svc.cluster.local:5432/content_engine"
+            # Secrets
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: content-engine-secrets
+                  key: OPENAI_API_KEY
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: content-engine-secrets
+                  key: ANTHROPIC_API_KEY
+            - name: TAVILY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: content-engine-secrets
+                  key: TAVILY_API_KEY
+            - name: FIRECRAWL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: content-engine-secrets
+                  key: FIRECRAWL_API_KEY
+            - name: COHERE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: content-engine-secrets
+                  key: COHERE_API_KEY
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: content-engine-secrets
+                  key: JWT_SECRET_KEY
+            - name: WORDPRESS_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: content-engine-secrets
+                  key: WORDPRESS_APP_PASSWORD
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
