@@ -6,6 +6,21 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.0-green)](https://github.com/langchain-ai/langgraph)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-teal)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-7c6af7?logo=github)](https://saiale.github.io/ai-content-engine/)
+
+---
+
+## 📖 Full Documentation & Project Showcase
+
+**[→ saiale.github.io/ai-content-engine](https://saiale.github.io/ai-content-engine/)**
+
+The project site covers everything in depth:
+
+- **Why I built this** — the problem with AI content tools, what's broken, and the design decisions behind this pipeline
+- **Use cases** — content marketing teams, research publications, e-commerce, agencies, and more
+- **Architecture deep-dive** — how LangGraph's `interrupt()`, PostgreSQL checkpointing, and SSE streaming fit together
+- **Upgrade roadmap** — three phases of future enhancements from RAG memory to a fully autonomous content intelligence platform
+- **Quick start & API reference** — copy-paste commands for every endpoint
 
 ---
 
@@ -196,6 +211,8 @@ ai_content_engine/
 │   ├── prometheus_alerts.yml
 │   └── docker-compose.monitoring.yml
 ├── k8s/                 # Kubernetes manifests
+├── docs/
+│   └── index.html       # GitHub Pages project site
 ├── graph.py             # StateGraph definition
 ├── state.py             # ContentState Pydantic model
 ├── config.py            # Pydantic v2 Settings
